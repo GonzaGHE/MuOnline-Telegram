@@ -51,11 +51,25 @@ except ImportError:
 
 # --------------------------- CONFIGURATION --------------------------- #
 
-# Telegram Token
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "YOUR_TOKEN_HERE")
+import json
 
-# Allowed User IDs
-CHAT_IDS = ["123456789"] # Add your Admin IDs here
+# Try to load from config.json
+CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')
+TELEGRAM_TOKEN = ""
+CHAT_IDS = []
+
+try:
+    with open(CONFIG_FILE, 'r') as f:
+        config = json.load(f)
+        TELEGRAM_TOKEN = config.get("TELEGRAM_TOKEN", "")
+        CHAT_IDS = config.get("CHAT_IDS", [])
+except Exception:
+    # Fallback to env or manual if config fails
+    TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "YOUR_TOKEN_HERE")
+    CHAT_IDS = ["123456789"]
+
+# Allowed User IDs (Ensure they are strings)
+CHAT_IDS = [str(uid) for uid in CHAT_IDS]
 
 # Process to Monitor
 MU_PROCESS_NAME = "main.exe"
