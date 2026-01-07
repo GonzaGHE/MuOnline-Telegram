@@ -4,9 +4,9 @@ import subprocess
 import json
 import shutil
 import ctypes
+import time
 
-# -------------------- COLORS (ANSI) --------------------
-# Standard Windows Consoles now support ANSI colors
+# -------------------- COLORES (ANSI) --------------------
 class Colors:    
     HEADER = '\033[95m'
     BLUE = '\033[94m'
@@ -30,119 +30,172 @@ def print_success(text):
 def print_error(text):
     print(f"{Colors.FAIL}[!] {text}{Colors.ENDC}")
 
+def print_warning(text):
+    print(f"{Colors.WARNING}[AVISO] {text}{Colors.ENDC}")
+
 def print_input_prompt(text):
     return input(f"{Colors.WARNING}[?] {text}{Colors.ENDC} ")
 
-# -------------------- MAIN SETUP --------------------
+# -------------------- SETUP PRINCIPAL --------------------
 
-def install_dependencies():
-    print_header("INSTALLING DEPENDENCIES")
-    print_step("Installing Python libraries (python-telegram-bot, psutil, Pillow)...")
-    try:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "python-telegram-bot", "psutil", "Pillow"])
-        print_success("Dependencies installed successfully.")
-    except subprocess.CalledProcessError:
-        print_error("Failed to install dependencies.")
-        input("Press Enter to exit...")
-        sys.exit(1)
-
-def create_config():
-    print_header("CONFIGURATION WIZARD")
+def check_environment():
+    print_header("VERIFICACIÓN DE SISTEMA")
     
-    print_step("Please provide your Telegram Bot credentials.")
-    token = print_input_prompt("Enter your Telegram Bot Token:").strip()
+    # Verificar Versión de Python
+    v = sys.version_info
+    print_step(f"Versión de Python: {v.major}.{v.minor}.{v.micro}")
     
-    if not token:
-        print_error("Token cannot be empty.")
+    if v.major < 3 or (v.major == 3 and v.minor < 8):
+        print_error("Tu versión de Python es muy antigua. Por favor instala Python 3.8 o superior.")
+        print_error("Descárgalo en: python.org")
+        input("Presiona Enter para salir...")
         sys.exit(1)
         
-    print_step("Enter your Admin ID (Telegram User ID).")
-    print_step("You can add multiple IDs separated by commas.")
-    admin_ids_input = print_input_prompt("Enter Admin IDs (e.g., 123456789):").strip()
-    
-    admin_ids = [x.strip() for x in admin_ids_input.split(",") if x.strip()]
-    
-    if not admin_ids:
-        print_error("ID cannot be empty.")
+    # Verificar PIP
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print_success("PIP está instalado y funcionando.")
+    except Exception:
+        print_error("Falta PIP (Gestor de Paquetes de Python).")
+        print_error("Por favor reinstala Python y asegúrate de marcar 'Add to PATH' y 'pip'.")
+        print_error("A veces es necesario reiniciar la PC después de instalar Python.")
+        input("Presiona Enter para salir...")
         sys.exit(1)
+
+def install_dependencies():
+    print_header("INSTALANDO DEPENDENCIAS")
+    print_step("Instalando librerías (python-telegram-bot, psutil, Pillow)...")
+    
+    libs = ["python-telegram-bot", "psutil", "Pillow"]
+    
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade"] + libs)
+        print_success("Comando de instalación finalizado.")
+    except subprocess.CalledProcessError:
+        print_error("Falló la instalación con pip.")
+        print_error("Verifica tu conexión a internet o ejecuta como Administrador.")
+        sys.exit(1)
+
+    # Verificar Importación
+    print_step("Verificando instalación...")
+    try:
+        import telegram
+        import psutil
+        import PIL
+        print_success("¡Todas las librerías verificadas correctamente!")
+    except ImportError as e:
+        print_error(f"Falló la verificación de librerías: {e}")
+        print_warning("Si acabas de instalar Python, INTENTA REINICIAR TU PC.")
+        print_warning("A veces Windows necesita un reinicio para reconocer las nuevas librerías.")
+        input("Presiona Enter para salir e intenta reiniciar...")
+        sys.exit(1)
+
+def create_config_and_install():
+    print_header("INSTALACIÓN Y CONFIGURACIÓN")
+    
+    # 1. Definir Rutas (AppData)
+    appdata_dir = os.path.join(os.getenv('APPDATA'), 'MuGuardian')
+    if not os.path.exists(appdata_dir):
+        os.makedirs(appdata_dir)
+        print_step(f"Directorio creado: {appdata_dir}")
+    
+    # 2. Copiar Script Principal (explorer.py)
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    source_script = os.path.join(current_dir, 'explorer.py')
+    dest_script = os.path.join(appdata_dir, 'explorer.py')
+    
+    try:
+        shutil.copy2(source_script, dest_script)
+        print_success("Bot copiado a carpeta segura (AppData).")
+    except Exception as e:
+        print_error(f"Error copiando script: {e}")
+        sys.exit(1)
+
+    # 3. Pedir Datos y Crear Config
+    print_step("CONFIGURACIÓN DE CREDENCIALES")
+    token = print_input_prompt("Ingresa tu Token del Bot:").strip()
+    if not token: sys.exit(1)
+        
+    admin_ids_input = print_input_prompt("Ingresa IDs de Admin (ej: 123456789):").strip()
+    admin_ids = [x.strip() for x in admin_ids_input.split(",") if x.strip()]
+    if not admin_ids: sys.exit(1)
 
     config_data = {
         "TELEGRAM_TOKEN": token,
         "CHAT_IDS": admin_ids
     }
     
-    # Save to config.json
-    config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')
+    config_path = os.path.join(appdata_dir, 'config.json')
     try:
         with open(config_path, 'w') as f:
             json.dump(config_data, f, indent=4)
-        print_success(f"Configuration saved to: {config_path}")
+        print_success(f"Configuración guardada oculta en: {config_path}")
     except Exception as e:
-        print_error(f"Failed to save config: {e}")
+        print_error(f"Error guardando config: {e}")
 
-def setup_persistence():
-    print_header("SYSTEM INTEGRATION")
+    return dest_script
+
+def setup_persistence(target_script_path):
+    print_header("INTEGRACIÓN DEL SISTEMA")
     
-    # Define paths
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    script_path = os.path.join(current_dir, 'explorer.py')
-    
-    # Determine pythonw.exe path (for silent execution)
-    python_exe = sys.executable
-    pythonw_exe = python_exe.replace("python.exe", "pythonw.exe")
-    
+    # Usar pythonw.exe para ocultar consola
+    pythonw_exe = sys.executable.replace("python.exe", "pythonw.exe")
     if not os.path.exists(pythonw_exe):
-        print_error("Warning: pythonw.exe not found. Using standard python.exe (Console will be visible).")
-        pythonw_exe = python_exe
+        pythonw_exe = sys.executable
     else:
-        print_success("Found stealth interpreter (pythonw.exe).")
+        print_success("Modo invisible activo (pythonw.exe).")
 
-    # Startup Folder
+    # Crear VBS en Inicio
     startup_folder = os.path.join(os.getenv('APPDATA'), r'Microsoft\Windows\Start Menu\Programs\Startup')
     shortcut_path = os.path.join(startup_folder, 'MuSystemMonitor.vbs')
     
-    print_step("Installing persistent startup script...")
-    
-    # We use a VBS wrapper to ensure it runs completely silent and hidden
-    # This is standard practice for background tasks, not malware technique
     vbs_content = f"""
 Set WshShell = CreateObject("WScript.Shell") 
-WshShell.Run chr(34) & "{pythonw_exe}" & chr(34) & " " & chr(34) & "{script_path}" & chr(34), 0
+WshShell.Run chr(34) & "{pythonw_exe}" & chr(34) & " " & chr(34) & "{target_script_path}" & chr(34), 0
 Set WshShell = Nothing 
 """
-    
     try:
         with open(shortcut_path, 'w') as f:
             f.write(vbs_content)
-        print_success(f"Persistence established at: {shortcut_path}")
-        print_success("The bot will now auto-start with Windows (Hidden Mode).")
+        print_success("Inicio automático configurado.")
     except Exception as e:
-        print_error(f"Failed to create startup file: {e}")
+        print_error(f"Error en persistencia: {e}")
 
-    # Launch Now?
-    choice = print_input_prompt("Do you want to start the bot now? (y/n):").lower()
-    if choice == 'y':
-        print_step("Starting bot service...")
-        subprocess.Popen([pythonw_exe, script_path], close_fds=True)
-        print_success("Bot started in background.")
+    # Ejecutar
+    choice = print_input_prompt("¿Iniciar el bot ahora? (s/n):").lower()
+    if choice == 's' or choice == 'y':
+        print_step("Iniciando servicio...")
+        subprocess.Popen([pythonw_exe, target_script_path], close_fds=True)
+        print_success("Bot iniciado en segundo plano.")
 
 def main():
-    # Set Console Title
-    ctypes.windll.kernel32.SetConsoleTitleW("System Monitor Installer")
+    os.system('cls' if os.name == 'nt' else 'clear')
+    ctypes.windll.kernel32.SetConsoleTitleW("Instalador MuGuardian")
     
     print(f"{Colors.BLUE}")
     print("************************************************")
-    print("*           SYSTEM MONITOR INSTALLER           *")
+    print("*        INSTALACIÓN AUTOMÁTICA MUGUARDIAN     *")
     print("************************************************")
     print(f"{Colors.ENDC}")
     
-    install_dependencies()
-    create_config()
-    setup_persistence()
+    print(f"{Colors.FAIL}")
+    print("DESCARGO DE RESPONSABILIDAD: USO BAJO TU PROPIO RIESGO.")
+    print("Este software se entrega 'tal cual'.")
+    print(f"{Colors.ENDC}")
+    print(f"{Colors.WARNING}Al continuar, aceptas toda la responsabilidad.{Colors.ENDC}\n")
     
-    print_header("INSTALLATION COMPLETE")
-    print_success("Everything is set up.")
-    input(f"\n{Colors.HEADER}Press Enter to close.{Colors.ENDC}")
+    check_environment()
+    install_dependencies()
+    
+    # Nueva lógica combinada: Instalar (Copiar) + Configurar
+    final_script_path = create_config_and_install()
+    setup_persistence(final_script_path)
+    
+    print_header("INSTALACIÓN COMPLETA")
+    print_success("El bot se ha instalado en el sistema.")
+    print_step("Puedes borrar esta carpeta de instalación si deseas.")
+    print_step("¡Recuerda enviar /start a tu bot!")
+    input(f"\n{Colors.HEADER}Presiona Enter para cerrar.{Colors.ENDC}")
 
 if __name__ == "__main__":
     main()

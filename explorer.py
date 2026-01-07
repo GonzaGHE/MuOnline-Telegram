@@ -53,8 +53,14 @@ except ImportError:
 
 import json
 
-# Try to load from config.json
-CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')
+# Define AppData path for config
+APPDATA_DIR = os.path.join(os.getenv('APPDATA'), 'MuGuardian')
+CONFIG_FILE = os.path.join(APPDATA_DIR, 'config.json')
+
+# Portable fallback (check local dir if AppData fails)
+if not os.path.exists(CONFIG_FILE):
+    CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')
+
 TELEGRAM_TOKEN = ""
 CHAT_IDS = []
 
@@ -64,7 +70,7 @@ try:
         TELEGRAM_TOKEN = config.get("TELEGRAM_TOKEN", "")
         CHAT_IDS = config.get("CHAT_IDS", [])
 except Exception:
-    # Fallback to env or manual if config fails
+    # Fallback to defaults
     TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "YOUR_TOKEN_HERE")
     CHAT_IDS = ["123456789"]
 
