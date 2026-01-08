@@ -46,8 +46,16 @@ try:
     except ImportError:
         HAS_SCREENSHOT = False
 
+    # Visual Watcher Dependencies
+    try:
+        import cv2
+        import numpy as np
+        HAS_OPENCV = True
+    except ImportError:
+        HAS_OPENCV = False
+
 except ImportError:
-    print("Missing dependencies. Run: pip install python-telegram-bot psutil Pillow")
+    print("Missing dependencies. Run: pip install python-telegram-bot psutil Pillow opencv-python")
     sys.exit(1)
 
 # --------------------------- CONFIGURATION --------------------------- #
@@ -57,10 +65,17 @@ import json
 # Define AppData path for config
 APPDATA_DIR = os.path.join(os.getenv('APPDATA'), 'MuGuardian')
 CONFIG_FILE = os.path.join(APPDATA_DIR, 'config.json')
+TARGETS_DIR = os.path.join(APPDATA_DIR, 'targets')
 
 # Portable fallback (check local dir if AppData fails)
 if not os.path.exists(CONFIG_FILE):
     CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')
+
+# Create targets dir if not exists (for portable mode)
+if not os.path.exists(TARGETS_DIR):
+    try: os.makedirs(TARGETS_DIR)
+    except: pass
+
 
 TELEGRAM_TOKEN = ""
 CHAT_IDS = []
@@ -95,6 +110,74 @@ logging.basicConfig(
     level=logging.ERROR
 )
 logger = logging.getLogger(__name__)
+
+# --------------------------- VISUAL WATCHER --------------------------- #
+
+# Global State for Watcher
+# Structure: { "filename.png": { "template": cv2_image, "visible": bool, "last_alert": float } }
+WATCHER_TARGETS = {}
+
+def load_targets():
+    """Load all images from the targets directory."""
+    global WATCHER_TARGETS
+    if not HAS_OPENCV: return 0
+    
+    WATCHER_TARGETS.clear()
+    
+    if not os.path.exists(TARGETS_DIR):
+        return 0
+
+    count = 0
+    try:
+        for file in os.listdir(TARGETS_DIR):
+            if file.lower().endswith(('.png', '.jpg', '.jpeg')):
+                path = os.path.join(TARGETS_DIR, file)
+                try:
+                    # Read image in color (or grayscale if preferred)
+                    # Convert to BGR for OpenCV
+                    img = cv2.imread(path)
+                    if img is not None:
+                        WATCHER_TARGETS[file] = {
+                            "template": img,
+                            "visible": False, # Smart Reset State
+                            "last_alert": 0
+                        }
+                        count += 1
+                except Exception as e:
+                    print(f"Error loading target {file}: {e}")
+    except Exception as e:
+        print(f"Error accessing targets dir: {e}")
+    
+    print(f"Visual Watcher: Loaded {count} targets.")
+    return count
+
+async def reload_targets_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not is_admin(update.effective_user.id): return
+    if not HAS_OPENCV:
+        await update.message.reply_text("❌ Falta librería `opencv-python`.")
+        return
+
+    count = load_targets()
+    msg = (
+        f"👁️ <b>SISTEMA VISUAL RECARGADO</b>\n"
+        f"📂 Objetivos cargados: {count}\n"
+        f"📁 Ruta: `{TARGETS_DIR}`"
+    )
+    await update.message.reply_text(msg, parse_mode=ParseMode.HTML)
+
+async def list_targets_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not is_admin(update.effective_user.id): return
+    
+    if not WATCHER_TARGETS:
+        await update.message.reply_text("📂 No hay imágenes en la carpeta `targets`.")
+        return
+
+    lines = ""
+    for name, data in WATCHER_TARGETS.items():
+        status = "🔴 Visible" if data['visible'] else "⚪ Esperando"
+        lines += f"• <b>{name}</b>: {status}\n"
+    
+    await update.message.reply_text(f"👁️ <b>OBJETIVOS VIGILADOS</b>\n\n{lines}", parse_mode=ParseMode.HTML)
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Log the error and ignore."""
@@ -295,7 +378,9 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"/status - Ver estado y cuentas\n"
         f"/screen - Ver escritorio\n"
         f"/reiniciar - Reiniciar PC\n"
-        f"/apagar - Apagar PC"
+        f"/apagar - Apagar PC\n"
+        f"/objetivos - Ver vigilancia visual\n"
+        f"/recargar - Recargar carpeta targets"
     )
     await update.message.reply_text(cmds, parse_mode=ParseMode.HTML)
 
@@ -364,9 +449,93 @@ async def monitor_loop(app: Application) -> None:
 
         await asyncio.sleep(SCAN_INTERVAL)
 
+async def visual_monitor_loop(app: Application) -> None:
+    """Background task to scan screen for targets."""
+    if not HAS_OPENCV: return
+    
+    print("Iniciando Monitor Visual...")
+    load_targets()
+    
+    # Confidence threshold
+    THRESHOLD = 0.9 
+    
+    import time
+
+    while True:
+        try:
+            if not WATCHER_TARGETS:
+                await asyncio.sleep(10)
+                continue
+
+            # Take Screenshot
+            if HAS_SCREENSHOT:
+                try:
+                    screen_pil = ImageGrab.grab()
+                    # Convert PIL RGB to OpenCV BGR
+                    screen_np = np.array(screen_pil)
+                    screen_bgr = cv2.cvtColor(screen_np, cv2.COLOR_RGB2BGR)
+                    
+                    # Iterate Targets
+                    for name, data in WATCHER_TARGETS.items():
+                        template = data["template"]
+                        
+                        # Optimization: Skip if template is larger than screen
+                        if template.shape[0] > screen_bgr.shape[0] or template.shape[1] > screen_bgr.shape[1]:
+                            continue
+
+                        # Template Matching
+                        res = cv2.matchTemplate(screen_bgr, template, cv2.TM_CCOEFF_NORMED)
+                        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
+                        
+                        is_match = max_val >= THRESHOLD
+                        
+                        # --- SMART RESET LOGIC ---
+                        
+                        # Case 1: Just Appeared (Was hidden, now visible)
+                        if is_match and not data['visible']:
+                            # Check safety cooldown (e.g., 10s to avoid flutter)
+                            if time.time() - data['last_alert'] > 10:
+                                data['visible'] = True
+                                data['last_alert'] = time.time()
+                                
+                                # Notify User
+                                # Usar nombre del archivo como título (ej: sms.png -> Sms Detectado)
+                                title_name = name.rsplit('.', 1)[0].replace('_', ' ').capitalize()
+                                
+                                msg = (
+                                    f"👁️ <b>{title_name} Detectado</b>\n"
+                                    f"🔎 Archivo: <b>{name}</b>\n"
+                                    f"📊 Confianza: {int(max_val*100)}%\n"
+                                    f"⏰ {get_time()}"
+                                )
+                                for cid in CHAT_IDS:
+                                    try: await app.bot.send_message(cid, msg, parse_mode=ParseMode.HTML)
+                                    except: pass
+                        
+                        # Case 2: Still Visible (Was visible, still visible)
+                        elif is_match and data['visible']:
+                            # Do nothing (Anti-Spam active)
+                            pass
+                            
+                        # Case 3: Disappeared (Was visible, now hidden)
+                        elif not is_match and data['visible']:
+                            # Immediate Reset!
+                            data['visible'] = False
+                        
+                except Exception as e:
+                    print(f"Visual Scan Error: {e}")
+
+        except Exception as e:
+            print(f"Visual Loop Critical Error: {e}")
+            await asyncio.sleep(5)
+
+        # Scan Interval (5 seconds)
+        await asyncio.sleep(5)
+
 async def on_startup(app: Application):
     asyncio.create_task(monitor_loop(app))
     asyncio.create_task(network_monitor_loop(app))
+    asyncio.create_task(visual_monitor_loop(app))
 
 # --------------------------- NETWORK MONITOR --------------------------- #
 
@@ -684,6 +853,10 @@ def run():
             app.add_handler(CommandHandler("reiniciar", reiniciar_pc))
             app.add_handler(CommandHandler("apagar", apagar_pc))
             app.add_handler(CommandHandler(["actualizar", "update"], check_update_cmd))
+            
+            # Watcher Commands
+            app.add_handler(CommandHandler(["recargar", "reload"], reload_targets_cmd))
+            app.add_handler(CommandHandler(["objetivos", "targets"], list_targets_cmd))
             
             app.add_handler(CallbackQueryHandler(update_callback_handler))
             

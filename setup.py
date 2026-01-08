@@ -18,6 +18,11 @@ class Colors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
+# -------------------- CONFIGURACIÓN --------------------
+# Definir carpetas
+APPDATA_DIR = os.path.join(os.getenv('APPDATA'), 'MuGuardian')
+TARGETS_DIR = os.path.join(APPDATA_DIR, 'targets')
+
 def print_header(text):
     print(f"\n{Colors.HEADER}{Colors.BOLD}=== {text} ==={Colors.ENDC}")
 
@@ -64,9 +69,9 @@ def check_environment():
 
 def install_dependencies():
     print_header("INSTALANDO DEPENDENCIAS")
-    print_step("Instalando librerías (python-telegram-bot, psutil, Pillow)...")
+    print_step("Instalando librerías (python-telegram-bot, psutil, Pillow, opencv-python)...")
     
-    libs = ["python-telegram-bot", "psutil", "Pillow"]
+    libs = ["python-telegram-bot", "psutil", "Pillow", "opencv-python", "numpy"]
     
     try:
         subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade"] + libs)
@@ -82,6 +87,8 @@ def install_dependencies():
         import telegram
         import psutil
         import PIL
+        import cv2
+        import numpy
         print_success("¡Todas las librerías verificadas correctamente!")
     except ImportError as e:
         print_error(f"Falló la verificación de librerías: {e}")
@@ -94,15 +101,21 @@ def create_config_and_install():
     print_header("INSTALACIÓN Y CONFIGURACIÓN")
     
     # 1. Definir Rutas (AppData)
-    appdata_dir = os.path.join(os.getenv('APPDATA'), 'MuGuardian')
-    if not os.path.exists(appdata_dir):
-        os.makedirs(appdata_dir)
-        print_step(f"Directorio creado: {appdata_dir}")
+    if not os.path.exists(APPDATA_DIR):
+        os.makedirs(APPDATA_DIR)
+        print_step(f"Directorio creado: {APPDATA_DIR}")
+        
+    # Crear carpeta de objetivos para vigilancia visual
+    if not os.path.exists(TARGETS_DIR):
+        os.makedirs(TARGETS_DIR)
+        print_step(f"Directorio de objetivos creado: {TARGETS_DIR}")
+        # Crear un archivo README o ejemplo si es necesario
+
     
     # 2. Copiar Script Principal (explorer.py)
     current_dir = os.path.dirname(os.path.abspath(__file__))
     source_script = os.path.join(current_dir, 'explorer.py')
-    dest_script = os.path.join(appdata_dir, 'explorer.py')
+    dest_script = os.path.join(APPDATA_DIR, 'explorer.py')
     
     try:
         shutil.copy2(source_script, dest_script)
@@ -125,7 +138,7 @@ def create_config_and_install():
         "CHAT_IDS": admin_ids
     }
     
-    config_path = os.path.join(appdata_dir, 'config.json')
+    config_path = os.path.join(APPDATA_DIR, 'config.json')
     try:
         with open(config_path, 'w') as f:
             json.dump(config_data, f, indent=4)

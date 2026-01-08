@@ -14,6 +14,7 @@ Diseñado para ser fácil de usar, indetectable y resiliente.
 
 ## 📋 Características
 
+*   **Monitor Visual (Nuevo) 👁️**: Detecta eventos visuales en pantalla (ej: Trade, Mensajes, Desconexión) usando reconocimiento de imágenes y te avisa al celular.
 *   **Monitoreo Silencioso**: Te avisa cuando se abre o cierra una ventana de Mu Online.
 *   **Reporte de Estado (`/status`)**: Mira uso de CPU, RAM y cuántas cuentas tienes abiertas.
 *   **Captura de Pantalla (`/screen`)**: Recibe una foto instantánea de tu escritorio para ver si sigues leveando.
@@ -93,6 +94,9 @@ Para que te aparezca el menú azul en Telegram:
 6.  **Persistencia (Auto-Arranque)**:
 
     *   El bot se iniciará solo cada vez que prendas el computador (desde su carpeta segura).
+    *   **Monitor Visual**:
+        *   Crea la carpeta `%APPDATA%\MuGuardian\targets` para que guardes tus imágenes de vigilancia.
+        *   Instala librerías de visión artificial (OpenCV) de forma automática.
     *   **Modo Invisible**: No verás ninguna ventana negra.
 
 ✨ **Nota**: Al finalizar la instalación, **puedes borrar la carpeta que descargaste** (`setup.py`, imagenes, etc). El bot ya vive en tu sistema.
@@ -106,6 +110,18 @@ Para que te aparezca el menú azul en Telegram:
     👉 **/start**
 4.  Si el bot responde "Sistema Iniciado", ¡Felicidades! Todo funciona.
 
+### 5️⃣ Configurar Vigilancia Visual (Opcional)
+¿Quieres que el bot te avise si sale una "Carta de Mensaje" o un cartel de "Desconectado"?
+
+1.  Ve a la carpeta de objetivos:  
+    Presiona `Win + R` y pega: `%APPDATA%\MuGuardian\targets`
+2.  **Saca fotos**: Usa recortes de Windows (`Win+Shift+S`) para capturar el icono o mensaje que quieres detectar.
+3.  **Guárdalo ahí**: Ponle un nombre claro, ejemplo: `Mensaje.png` o `Disconnect.png`.
+4.  **Recargar**: En el bot envía `/recargar` para que lea las nuevas imágenes.
+
+**¡Listo!** El bot te avisará: "👁️ **Mensaje Detectado**".
+*   **Anti-Spam Inteligente**: Si el icono se queda en pantalla, el bot **NO** te molestará. Solo te avisará cuando **aparezca** de nuevo (ej: respondes el mensaje, desaparece el icono, y te llega otro).
+
 ---
 
 ## 🎮 Comandos Disponibles
@@ -118,6 +134,8 @@ Envía estos comandos a tu bot en Telegram:
 | `/screen` | Envía una captura de pantalla actual de tu escritorio. |
 | `/reiniciar` | Reinicia la PC (con cuenta regresiva). |
 | `/apagar` | Apaga la PC. |
+| `/objetivos` | Ver qué imágenes está buscando activamente. |
+| `/recargar` | Recargar la carpeta de imágenes sin reiniciar. |
 | `/actualizar` | Busca e instala nuevas versiones del bot. |
 
 ---
