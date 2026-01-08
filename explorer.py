@@ -143,13 +143,40 @@ def get_mu_process_info() -> List[dict]:
     return instances
 
 
+
+def get_cpu_usage_windows() -> int:
+    """Intenta obtener el uso de CPU usando WMIC (Más similar al Task Manager)."""
+    try:
+        # wmic cpu get loadpercentage /Value
+        cmd = ["wmic", "cpu", "get", "loadpercentage", "/Value"]
+        
+        # Hide Window
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startupinfo.wShowWindow = subprocess.SW_HIDE
+        
+        output = subprocess.check_output(cmd, startupinfo=startupinfo, stderr=subprocess.DEVNULL)
+        text = output.decode('utf-8', errors='ignore')
+        
+        for line in text.splitlines():
+            if "LoadPercentage" in line:
+                return int(line.strip().split('=')[1])
+        return -1
+    except:
+        return -1
+
 async def get_system_stats() -> str:
     """Generate a formatted system status report."""
     try:
         # System Stats (Async safe)
-        # Run cpu_percent in a thread to verify blocking 1s
         loop = asyncio.get_running_loop()
-        cpu_usage = await loop.run_in_executor(None, lambda: psutil.cpu_percent(interval=1))
+        
+        # Intentar WMIC primero (Windows Native)
+        cpu_usage = await loop.run_in_executor(None, get_cpu_usage_windows)
+        
+        # Si falla WMIC (-1), usar psutil
+        if cpu_usage == -1:
+            cpu_usage = await loop.run_in_executor(None, lambda: psutil.cpu_percent(interval=1))
         
         ram = psutil.virtual_memory()
         ram_used = round(ram.used / (1024**3), 2)
@@ -511,9 +538,10 @@ async def network_monitor_loop(app: Application) -> None:
 
 
 # --------------------------- VERSION & UPDATES --------------------------- #
-VERSION = "1.1.4"
+VERSION = "1.1.5"
 
 RELEASE_NOTES = """
+- 📊 Mejora: Lectura de CPU nativa de Windows (WMIC) para mayor coincidencia con Task Manager.
 - 🐛 Fix: Lectura correcta de CPU y Ping instantáneo en /status.
 - 📊 Agregado: Visualización de Ping actual en comando /status.
 - 🐛 Fix: Corrección de ventana de consola parpadeando al hacer ping.
