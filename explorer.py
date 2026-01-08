@@ -142,11 +142,15 @@ def get_mu_process_info() -> List[dict]:
             continue
     return instances
 
-def get_system_stats() -> str:
+
+async def get_system_stats() -> str:
     """Generate a formatted system status report."""
     try:
-        # System Stats
-        cpu_usage = psutil.cpu_percent(interval=None)
+        # System Stats (Async safe)
+        # Run cpu_percent in a thread to verify blocking 1s
+        loop = asyncio.get_running_loop()
+        cpu_usage = await loop.run_in_executor(None, lambda: psutil.cpu_percent(interval=1))
+        
         ram = psutil.virtual_memory()
         ram_used = round(ram.used / (1024**3), 2)
         ram_total = round(ram.total / (1024**3), 2)
@@ -164,10 +168,12 @@ def get_system_stats() -> str:
         else:
             instance_lines = "   └─ Ninguno activo"
 
+        ping_text = f"{CURRENT_LATENCY}ms" if CURRENT_LATENCY > 0 else "Calculando..."
+        
         msg = (
             f"📊 <b>ESTADO DEL SISTEMA</b>\n\n"
             f"💻 <b>CPU</b>: {cpu_usage}%  |  🧠 <b>RAM</b>: {ram_percent}%\n"
-            f"📡 <b>Ping</b>: {CURRENT_LATENCY}ms\n"
+            f"📡 <b>Ping</b>: {ping_text}\n"
             f"🎮 <b>{MU_DISPLAY_NAME}</b>: {count} Clientes\n\n"
             f"{instance_lines}"
         )   
@@ -179,7 +185,9 @@ def get_system_stats() -> str:
 
 async def status_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not is_admin(update.effective_user.id): return
-    stats = get_system_stats()
+    # Show "Typing..." action because it takes 1s
+    await update.message.chat.send_action(action="typing")
+    stats = await get_system_stats()
     await update.message.reply_text(stats, parse_mode=ParseMode.HTML)
 
 async def screen_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -382,6 +390,11 @@ async def network_monitor_loop(app: Application) -> None:
     
     global CURRENT_LATENCY
     
+    # Check inmediato al iniciar
+    try:
+        CURRENT_LATENCY = await check_ping(PING_HOST)
+    except: pass
+
     while True:
         await asyncio.sleep(CHECK_INTERVAL)
         
@@ -498,13 +511,13 @@ async def network_monitor_loop(app: Application) -> None:
 
 
 # --------------------------- VERSION & UPDATES --------------------------- #
-VERSION = "1.1.3"
+VERSION = "1.1.4"
 
 RELEASE_NOTES = """
+- 🐛 Fix: Lectura correcta de CPU y Ping instantáneo en /status.
 - 📊 Agregado: Visualización de Ping actual en comando /status.
 - 🐛 Fix: Corrección de ventana de consola parpadeando al hacer ping.
 - ✅ Agregado monitor de red inteligente (Auto-Learning).
-- ✅ Notificaciones de internet lento y desconexiones.
 - ✅ Sistema de Auto-Actualización integrado.
 """
 REPO_URL = "https://raw.githubusercontent.com/GonzaGHE/MuOnline-Telegram/main/explorer.py"
