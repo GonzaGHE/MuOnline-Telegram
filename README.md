@@ -125,7 +125,7 @@ Envía estos comandos a tu bot en Telegram:
 ## ❓ Preguntas Frecuentes
 
 **¿Es detectable por Anti-Cheats?**
-No. El bot no interactúa con el juego ("hook"). Solo lee la lista de procesos de Windows (como el Administrador de Tareas) para ver si `Main.exe` existe.
+No. El bot no interactúa con el juego ("hook"). Solo lee la lista de procesos de Windows (como el Administrador de Tareas) para ver si `main.exe` existe.
 
 **¿Qué pasa si se me va el internet?**
 El bot se quedará en pausa reintentando conectar cada 10 segundos. Cuando vuelva el internet, seguirá funcionando automáticamente.
