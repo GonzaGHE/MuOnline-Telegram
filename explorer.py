@@ -19,6 +19,7 @@ No local logging. No emojis in comments.
 import asyncio
 import logging
 import os
+import shutil
 import subprocess
 import sys
 import platform
@@ -482,6 +483,99 @@ async def network_monitor_loop(app: Application) -> None:
 
 
 
+
+# --------------------------- VERSION & UPDATES --------------------------- #
+VERSION = "1.1.0"
+RELEASE_NOTES = """
+- ✅ Agregado monitor de red inteligente (Auto-Learning).
+- ✅ Notificaciones de internet lento y desconexiones.
+- ✅ Sistema de Auto-Actualización integrado.
+"""
+REPO_URL = "https://raw.githubusercontent.com/GonzaGHE/MuOnline-Telegram/main/explorer.py"
+
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+async def check_update_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not is_admin(update.effective_user.id): return
+    
+    msg = await update.message.reply_text("⏳ Verificando actualizaciones...")
+    
+    try:
+        import urllib.request
+        with urllib.request.urlopen(REPO_URL) as response:
+            remote_code = response.read().decode('utf-8')
+            
+        # Extraer versión remota
+        import re
+        version_match = re.search(r'VERSION\s*=\s*"([^"]+)"', remote_code)
+        remote_version = version_match.group(1) if version_match else "Unknown"
+        
+        # Extraer notas remotas
+        notes_match = re.search(r'RELEASE_NOTES\s*=\s*"""(.*?)"""', remote_code, re.DOTALL)
+        remote_notes = notes_match.group(1).strip() if notes_match else "Sin notas."
+        
+        # Comparar
+        if remote_version == VERSION:
+            text = (
+                f"✅ <b>SISTEMA ACTUALIZADO</b>\n"
+                f"🛡️ Versión instalada: v{VERSION}\n\n"
+                f"📝 <b>Últimos cambios locales:</b>\n{RELEASE_NOTES}"
+            )
+            await msg.edit_text(text, parse_mode=ParseMode.HTML)
+        else:
+            text = (
+                f"🚀 <b>NUEVA VERSIÓN DISPONIBLE: v{remote_version}</b>\n"
+                f"📌 Actual: v{VERSION}\n\n"
+                f"📝 <b>Novedades:</b>\n{remote_notes}\n\n"
+                f"🔗 <a href='https://github.com/GonzaGHE/MuOnline-Telegram'>Ver Repositorio</a>"
+            )
+            
+            keyboard = [[InlineKeyboardButton("✅ Instalar Actualización", callback_data="confirm_update")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await msg.edit_text(text, parse_mode=ParseMode.HTML, reply_markup=reply_markup, disable_web_page_preview=True)
+
+    except Exception as e:
+        await msg.edit_text(f"❌ Error verificando actualización: {e}")
+
+async def update_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query.data != "confirm_update": return
+    if not is_admin(query.from_user.id): return
+
+    await query.answer()
+    await query.edit_message_text("⏳ <b>Iniciando actualización...</b>\n1️⃣ Descargando código...\n2️⃣ Instalando dependencias...\n3️⃣ Reiniciando...", parse_mode=ParseMode.HTML)
+    
+    try:
+        # 1. Backup
+        shutil.copy2(__file__, __file__ + ".bak")
+        
+        # 2. Descargar código nuevo principal
+        import urllib.request
+        with urllib.request.urlopen(REPO_URL) as response:
+            remote_code = response.read().decode('utf-8')
+            
+        with open(__file__, 'w', encoding='utf-8') as f:
+            f.write(remote_code)
+            
+        # 3. Intentar instalar dependencias
+        # Buscamos requirements.txt en el repo
+        REQ_URL = "https://raw.githubusercontent.com/GonzaGHE/MuOnline-Telegram/main/requirements.txt"
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", REQ_URL])
+        except:
+            # Si falla (ej: no existe el archivo), seguimos igual
+            pass
+            
+        # 4. Reiniciar
+        print("Reiniciando proceso...")
+        os.execv(sys.executable, ['python'] + sys.argv)
+        
+    except Exception as e:
+        await query.message.reply_text(f"❌ Error crítico en actualización: {e}\nRestaurando backup...")
+        shutil.copy2(__file__ + ".bak", __file__)
+
+
 # --------------------------- MAIN --------------------------- #
 
 def run():
@@ -489,6 +583,9 @@ def run():
     # Network Resilience Loop
     while True:
         try:
+            # Añadir CallbackQueryHandler
+            from telegram.ext import CallbackQueryHandler
+            
             app = ApplicationBuilder().token(TELEGRAM_TOKEN).post_init(on_startup).build()
             
             app.add_handler(CommandHandler("start", start_cmd))
@@ -496,6 +593,9 @@ def run():
             app.add_handler(CommandHandler("screen", screen_cmd))
             app.add_handler(CommandHandler("reiniciar", reiniciar_pc))
             app.add_handler(CommandHandler("apagar", apagar_pc))
+            app.add_handler(CommandHandler(["actualizar", "update"], check_update_cmd))
+            
+            app.add_handler(CallbackQueryHandler(update_callback_handler))
             
             app.add_error_handler(error_handler)
             

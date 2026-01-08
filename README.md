@@ -60,6 +60,7 @@ Para que te aparezca el menú azul en Telegram:
     screen - Captura de pantalla
     reiniciar - Reiniciar PC
     apagar - Apagar PC
+    actualizar - Actualizar Bot
     ```
 
 #### 🆔 Obtener tu ID
@@ -85,7 +86,12 @@ Para que te aparezca el menú azul en Telegram:
         *   Detección de cortes de internet y microcortes.
         *   Aprendizaje automático de latencia normal (se adapta a tu conexión).
         *   Alertas de "Internet Lento" basadas en tu promedio histórico.
-5.  **Persistencia (Auto-Arranque)**:
+5.  **Auto-Actualización**:
+    *   Comando `/actualizar` para recibir las últimas mejoras sin reinstalar.
+    *   Muestra novedades y botón de instalación automática.
+    *   Gestión automática de dependencias.
+6.  **Persistencia (Auto-Arranque)**:
+
     *   El bot se iniciará solo cada vez que prendas el computador (desde su carpeta segura).
     *   **Modo Invisible**: No verás ninguna ventana negra.
 
@@ -110,8 +116,9 @@ Envía estos comandos a tu bot en Telegram:
 | :--- | :--- |
 | `/status` | Muestra estado del PC (CPU/RAM) y lista de cuentas abiertas. |
 | `/screen` | Envía una captura de pantalla actual de tu escritorio. |
-| `/reiniciar` | Reinicia la PC (con advertencia de 3 segundos). |
-| `/apagar` | Apaga la PC (con advertencia de 3 segundos). |
+| `/reiniciar` | Reinicia la PC (con cuenta regresiva). |
+| `/apagar` | Apaga la PC. |
+| `/actualizar` | Busca e instala nuevas versiones del bot. |
 
 ---
 
@@ -123,8 +130,13 @@ No. El bot no interactúa con el juego ("hook"). Solo lee la lista de procesos d
 **¿Qué pasa si se me va el internet?**
 El bot se quedará en pausa reintentando conectar cada 10 segundos. Cuando vuelva el internet, seguirá funcionando automáticamente.
 
-**¿Cómo detengo el bot?**
-Como corre en modo invisible, debes abrir el **Administrador de Tareas**, buscar `Python` o `Pythonw` y finalizar la tarea. O simplemente reinicia la PC si no quieres que corra esa vez (aunque volverá a iniciar al prenderla de nuevo si no borras el acceso directo del inicio).
+**¿Cómo desinstalo el bot completamente?**
+Para eliminarlo de tu sistema sigue estos pasos:
+1.  **Detener**: Abre el Administrador de Tareas (`Ctrl+Shift+Esc`), busca `Python` o `Pythonw` y dale a "Finalizar Tarea".
+2.  **Borrar Inicio**: Presiona `Win + R`, escribe `shell:startup` y borra el archivo `MuSystemMonitor.vbs`.
+3.  **Borrar Archivos**: Presiona `Win + R`, escribe `%APPDATA%` y borra la carpeta `MuGuardian`.
+¡Listo! No queda rastro en tu PC.
+
 
 ---
 
