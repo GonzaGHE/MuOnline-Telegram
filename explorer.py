@@ -295,6 +295,192 @@ async def monitor_loop(app: Application) -> None:
 
 async def on_startup(app: Application):
     asyncio.create_task(monitor_loop(app))
+    asyncio.create_task(network_monitor_loop(app))
+
+# --------------------------- NETWORK MONITOR --------------------------- #
+
+async def check_ping(host: str = "8.8.8.8") -> int:
+    """
+    Realiza un ping y retorna la latencia en ms.
+    Retorna -1 si hay timeout o error.
+    """
+    try:
+        # Ejecuta ping de forma asíncrona pero invocando al sistema
+        # -n 1: 1 paquete
+        # -w 2000: tiempo de espera máximo 2000ms
+        proc = await asyncio.create_subprocess_exec(
+            "ping", "-n", "1", "-w", "2000", host,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await proc.communicate()
+        
+        if proc.returncode == 0:
+            try:
+                # Intentar decodificar con utf-8 o cp850 (común en windows latam)
+                output = stdout.decode('cp850', errors='ignore')
+                
+                # Buscar tiempo=XXms o time=XXms (y soporte para frances temps=XX ms)
+                import re
+                # Soporta formatos: time=10ms, tiempo=10ms, time<1ms, temps=10 ms
+                match = re.search(r'(?:time|tiempo|zeit|temps)[=<]\s*([0-9]+)\s*ms', output, re.IGNORECASE)
+                if match:
+                    return int(match.group(1))
+                # Si es returncode 0 pero no encontramos el tiempo, asumimos que está OK pero sin medida
+                # (A veces pasa con <1ms en algunos sistemas si el regex falla)
+                if "<1" in output: return 1
+                return 10 # Valor por defecto si responde OK pero falla regex
+            except:
+                return 10
+        return -1
+    except Exception:
+        return -1
+
+async def network_monitor_loop(app: Application) -> None:
+    bot = app.bot
+    print("Iniciando monitor de red inteligente...")
+    
+    # Configuración General
+    PING_HOST = "8.8.8.8"
+    CHECK_INTERVAL = 10  # Segundos entre checks
+    
+    # --- Lógica Adaptativa (Auto-Learning) ---
+    # Valores iniciales conservadores
+    avg_latency = 100.0   # Empezamos asumiendo 100ms
+    ALPHA = 0.1           # Peso del nuevo valor en el promedio (10%)
+    
+    # Límites de seguridad para el Umbral Dinámico
+    # No importa qué tan rápido sea el internet, menos de 150ms no es alerta.
+    # No importa qué tan lento sea el promedio, más de 600ms siempre es alerta.
+    MIN_SLOW_THRESHOLD = 150 
+    MAX_SLOW_THRESHOLD = 600
+    
+    # Estados y Contadores (Hysteresis)
+    # Estados: 'OK', 'SLOW', 'DOWN'
+    last_state = 'OK'
+    
+    # Contadores para cambiar de estado (Anti-Flap)
+    consecutive_slow = 0
+    consecutive_ok = 0
+    consecutive_down = 0
+    
+    # Umbrales de cambio (Cuantas veces seguidas debe pasar para cambiar estado)
+    REQ_SLOW = 2  # OK -> SLOW requiere 2 fallos
+    REQ_OK = 3    # SLOW -> OK requiere 3 aciertos (más estricto para asegurar estabilidad)
+    REQ_DOWN = 2  # ANY -> DOWN requiere 2 fallos totales
+    
+    while True:
+        await asyncio.sleep(CHECK_INTERVAL)
+        
+        try:
+            latency = await check_ping(PING_HOST)
+            
+            # --- Determinación del Estado Crudo (Raw) ---
+            new_state_raw = 'OK'
+            
+            if latency == -1:
+                new_state_raw = 'DOWN'
+            else:
+                # Cálculo Dinámico del Umbral Lento
+                # El umbral es el doble del promedio actual, pero respetando límites seguros
+                dynamic_threshold = max(MIN_SLOW_THRESHOLD, min(avg_latency * 2.0, MAX_SLOW_THRESHOLD))
+                
+                if latency > dynamic_threshold:
+                    new_state_raw = 'SLOW'
+                else:
+                    new_state_raw = 'OK'
+                    
+                # Aprendizaje Continuo con Exponential Moving Average (EMA)
+                # Solo aprendemos si la latencia es "normal" (OK) para no ensuciar el promedio con lag spikes
+                if new_state_raw == 'OK':
+                    avg_latency = (avg_latency * (1.0 - ALPHA)) + (latency * ALPHA)
+
+            # --- Lógica de Histéresis (Anti-Rebote) ---
+            current_final_state = last_state # Por defecto mantenemos el estado anterior
+            
+            # Manejo de DOWN (Prioridad Alta)
+            if new_state_raw == 'DOWN':
+                consecutive_down += 1
+                consecutive_ok = 0
+                consecutive_slow = 0
+                if consecutive_down >= REQ_DOWN:
+                     current_final_state = 'DOWN'
+            else:
+                consecutive_down = 0 
+                # Si no estamos DOWN, vemos si es SLOW u OK
+                
+                if new_state_raw == 'SLOW':
+                    consecutive_slow += 1
+                    consecutive_ok = 0
+                    if consecutive_slow >= REQ_SLOW:
+                        current_final_state = 'SLOW'
+                    else:
+                        # Si aún no llegamos al contador, mantenemos el estado previo
+                        # Salvo que viniéramos de DOWN, en cuyo caso pasamos a SLOW preventivo o mantenemos DOWN?
+                        # Mejor: Si venimos de DOWN, cualquier señal de vida es buena, pero esperemos a estabilizar.
+                        if last_state == 'DOWN': pass 
+                        else: current_final_state = last_state
+
+                elif new_state_raw == 'OK':
+                    consecutive_ok += 1
+                    consecutive_slow = 0
+                    if consecutive_ok >= REQ_OK:
+                        current_final_state = 'OK'
+                    else:
+                        # Si venimos de SLOW/DOWN, necesitamos confirmar REQ_OK veces.
+                        if last_state != 'OK': current_final_state = last_state
+                        else: current_final_state = 'OK' # Si ya estábamos OK, seguimos OK
+
+            # --- Notificaciones ---
+            if current_final_state != last_state:
+                msg = ""
+                
+                # Entrando a DOWN
+                if current_final_state == 'DOWN':
+                    msg = (
+                        f"🚨 <b>ALERTA DE RED</b>\n"
+                        f"📡 Conexión Perdida\n"
+                        f"⚠️ Sin respuesta del servidor\n"
+                        f"⏰ {get_time()}"
+                    )
+                
+                # Saliendo de DOWN
+                elif last_state == 'DOWN':
+                    status_text = "Estable" if current_final_state == 'OK' else "Inestable"
+                    msg = (
+                        f"✅ <b>CONEXIÓN RESTAURADA</b>\n"
+                        f"📡 Estado: {status_text}\n"
+                        f"⏰ {get_time()}"
+                    )
+
+                # Entrando a SLOW (desde OK)
+                elif current_final_state == 'SLOW' and last_state == 'OK':
+                    msg = (
+                        f"⚠️ <b>INTERNET LENTO</b>\n"
+                        f"🐢 Latencia: {latency}ms (Promedio: {int(avg_latency)}ms)\n"
+                        f"📉 Umbral dinámico: {int(dynamic_threshold)}ms\n"
+                        f"⏰ {get_time()}"
+                    )
+                
+                # Saliendo de SLOW (hacia OK)
+                elif current_final_state == 'OK' and last_state == 'SLOW':
+                    msg = (
+                        f"✅ <b>LATENCIA NORMALIZADA</b>\n"
+                        f"🚀 Ping actual: {latency}ms\n"
+                        f"⏰ {get_time()}"
+                    )
+
+                if msg:
+                    for cid in CHAT_IDS:
+                        try: await bot.send_message(cid, msg, parse_mode=ParseMode.HTML)
+                        except: pass
+                
+                last_state = current_final_state
+                
+        except Exception as e:
+            print(f"Error en monitor de red: {e}")
+
+
 
 # --------------------------- MAIN --------------------------- #
 

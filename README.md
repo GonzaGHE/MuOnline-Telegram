@@ -80,7 +80,12 @@ Para que te aparezca el menú azul en Telegram:
     *   Crea una carpeta oculta en tu sistema (`%APPDATA%\MuGuardian`).
     *   Copia el bot y tu configuración allí para que **no se borren por accidente**.
 3.  **Configuración**: Te pedirá que pegues el **Token** y tu **ID**.
-4.  **Persistencia (Auto-Arranque)**:
+4.  **Network Resilience (Auto-Retry)**:
+    *   **Monitor de Red Inteligente**:
+        *   Detección de cortes de internet y microcortes.
+        *   Aprendizaje automático de latencia normal (se adapta a tu conexión).
+        *   Alertas de "Internet Lento" basadas en tu promedio histórico.
+5.  **Persistencia (Auto-Arranque)**:
     *   El bot se iniciará solo cada vez que prendas el computador (desde su carpeta segura).
     *   **Modo Invisible**: No verás ninguna ventana negra.
 
