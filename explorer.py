@@ -738,17 +738,15 @@ async def network_monitor_loop(app: Application) -> None:
 
 
 # --------------------------- VERSION & UPDATES --------------------------- #
-VERSION = "1.1.7"
+# --------------------------- VERSION & UPDATES --------------------------- #
+VERSION = "1.2.0"
 
 RELEASE_NOTES = """
-- 📊 Mejora: Lectura CPU con 'typeperf' (Contadores de Rendimiento de Windows).
-- 📊 Mejora: Nueva técnica de lectura de CPU (PowerShell) para máxima precisión.
-- 📊 Mejora: Lectura de CPU nativa de Windows (WMIC) para mayor coincidencia con Task Manager.
-- 🐛 Fix: Lectura correcta de CPU y Ping instantáneo en /status.
-- 📊 Agregado: Visualización de Ping actual en comando /status.
-- 🐛 Fix: Corrección de ventana de consola parpadeando al hacer ping.
-- ✅ Agregado monitor de red inteligente (Auto-Learning).
-- ✅ Sistema de Auto-Actualización integrado.
+- �️ **Nuevo: Monitor Visual** (Detección de imágenes en pantalla).
+- � Comandos: `/objetivos` y `/recargar` para gestionar vigilancia.
+- 🧠 **Smart Reset**: Avisa al instante cuando aparece una alerta visual, sin spam.
+- � Dependencias: Agregado soporte para OpenCV (Visión Artificial).
+- 🛡️ Mejora: Detección inteligente de archivos en carpeta `targets`.
 """
 REPO_URL = "https://raw.githubusercontent.com/GonzaGHE/MuOnline-Telegram/main/explorer.py"
 

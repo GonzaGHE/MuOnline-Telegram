@@ -1,0 +1,5 @@
+python-telegram-bot
+psutil
+Pillow
+opencv-python
+numpy
