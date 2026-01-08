@@ -144,11 +144,18 @@ def get_mu_process_info() -> List[dict]:
 
 
 
+
 def get_cpu_usage_windows() -> int:
-    """Intenta obtener el uso de CPU usando WMIC (Más similar al Task Manager)."""
+    """Intenta obtener el uso de CPU usando PowerShell (Más robusto que WMIC)."""
     try:
-        # wmic cpu get loadpercentage /Value
-        cmd = ["wmic", "cpu", "get", "loadpercentage", "/Value"]
+        # PowerShell: Get-WmiObject Win32_Processor | Measure-Object -Property LoadPercentage -Average | Select-Object -ExpandProperty Average
+        # Esta opción entrega el promedio de todos los núcleos
+        cmd = [
+            "powershell", 
+            "-NoProfile", 
+            "-Command", 
+            "Get-WmiObject Win32_Processor | Measure-Object -Property LoadPercentage -Average | Select-Object -ExpandProperty Average"
+        ]
         
         # Hide Window
         startupinfo = subprocess.STARTUPINFO()
@@ -156,12 +163,8 @@ def get_cpu_usage_windows() -> int:
         startupinfo.wShowWindow = subprocess.SW_HIDE
         
         output = subprocess.check_output(cmd, startupinfo=startupinfo, stderr=subprocess.DEVNULL)
-        text = output.decode('utf-8', errors='ignore')
-        
-        for line in text.splitlines():
-            if "LoadPercentage" in line:
-                return int(line.strip().split('=')[1])
-        return -1
+        # Output expected: "15" (integer as string)
+        return int(float(output.decode('utf-8').strip()))
     except:
         return -1
 
@@ -538,9 +541,10 @@ async def network_monitor_loop(app: Application) -> None:
 
 
 # --------------------------- VERSION & UPDATES --------------------------- #
-VERSION = "1.1.5"
+VERSION = "1.1.6"
 
 RELEASE_NOTES = """
+- 📊 Mejora: Nueva técnica de lectura de CPU (PowerShell) para máxima precisión.
 - 📊 Mejora: Lectura de CPU nativa de Windows (WMIC) para mayor coincidencia con Task Manager.
 - 🐛 Fix: Lectura correcta de CPU y Ping instantáneo en /status.
 - 📊 Agregado: Visualización de Ping actual en comando /status.
