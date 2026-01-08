@@ -114,7 +114,7 @@ Envía estos comandos a tu bot en Telegram:
 
 | Comando | Descripción |
 | :--- | :--- |
-| `/status` | Muestra estado del PC (CPU/RAM) y lista de cuentas abiertas. |
+| `/status` | Muestra estado del PC (CPU/RAM/Ping) y lista de cuentas abiertas. |
 | `/screen` | Envía una captura de pantalla actual de tu escritorio. |
 | `/reiniciar` | Reinicia la PC (con cuenta regresiva). |
 | `/apagar` | Apaga la PC. |

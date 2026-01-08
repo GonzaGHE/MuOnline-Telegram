@@ -85,6 +85,9 @@ MU_DISPLAY_NAME = "Mu Online"
 # Scan Interval (seconds)
 SCAN_INTERVAL = 5
 
+# Global Network State
+CURRENT_LATENCY = 0
+
 # --------------------------- LOGGING --------------------------- #
 # Only critical errors to console, no file logging
 logging.basicConfig(
@@ -164,6 +167,7 @@ def get_system_stats() -> str:
         msg = (
             f"📊 <b>ESTADO DEL SISTEMA</b>\n\n"
             f"💻 <b>CPU</b>: {cpu_usage}%  |  🧠 <b>RAM</b>: {ram_percent}%\n"
+            f"📡 <b>Ping</b>: {CURRENT_LATENCY}ms\n"
             f"🎮 <b>{MU_DISPLAY_NAME}</b>: {count} Clientes\n\n"
             f"{instance_lines}"
         )   
@@ -376,11 +380,14 @@ async def network_monitor_loop(app: Application) -> None:
     REQ_OK = 3    # SLOW -> OK requiere 3 aciertos (más estricto para asegurar estabilidad)
     REQ_DOWN = 2  # ANY -> DOWN requiere 2 fallos totales
     
+    global CURRENT_LATENCY
+    
     while True:
         await asyncio.sleep(CHECK_INTERVAL)
         
         try:
             latency = await check_ping(PING_HOST)
+            CURRENT_LATENCY = latency # Actualizar variable global
             
             # --- Determinación del Estado Crudo (Raw) ---
             new_state_raw = 'OK'
@@ -491,10 +498,10 @@ async def network_monitor_loop(app: Application) -> None:
 
 
 # --------------------------- VERSION & UPDATES --------------------------- #
-VERSION = "1.1.2"
-
+VERSION = "1.1.3"
 
 RELEASE_NOTES = """
+- 📊 Agregado: Visualización de Ping actual en comando /status.
 - 🐛 Fix: Corrección de ventana de consola parpadeando al hacer ping.
 - ✅ Agregado monitor de red inteligente (Auto-Learning).
 - ✅ Notificaciones de internet lento y desconexiones.
