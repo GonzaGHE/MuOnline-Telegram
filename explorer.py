@@ -145,17 +145,12 @@ def get_mu_process_info() -> List[dict]:
 
 
 
-def get_cpu_usage_windows() -> int:
-    """Intenta obtener el uso de CPU usando PowerShell (Más robusto que WMIC)."""
+
+def get_cpu_typeperf() -> int:
+    """Obtiene uso de CPU usando contadores de rendimiento (Typeperf)."""
     try:
-        # PowerShell: Get-WmiObject Win32_Processor | Measure-Object -Property LoadPercentage -Average | Select-Object -ExpandProperty Average
-        # Esta opción entrega el promedio de todos los núcleos
-        cmd = [
-            "powershell", 
-            "-NoProfile", 
-            "-Command", 
-            "Get-WmiObject Win32_Processor | Measure-Object -Property LoadPercentage -Average | Select-Object -ExpandProperty Average"
-        ]
+        # typeperf "\Processor(_Total)\% Processor Time" -sc 1
+        cmd = ["typeperf", r"\Processor(_Total)\% Processor Time", "-sc", "1"]
         
         # Hide Window
         startupinfo = subprocess.STARTUPINFO()
@@ -163,7 +158,36 @@ def get_cpu_usage_windows() -> int:
         startupinfo.wShowWindow = subprocess.SW_HIDE
         
         output = subprocess.check_output(cmd, startupinfo=startupinfo, stderr=subprocess.DEVNULL)
-        # Output expected: "15" (integer as string)
+        text = output.decode('cp850', errors='ignore') # Typeperf uses legacy encoding often
+        
+        # Output format is CSV-like:
+        # "TimeStamp","Value"
+        # "01/01/2026...","15.5"
+        lines = text.strip().splitlines()
+        if len(lines) >= 2:
+            last_line = lines[-1]
+            # Split by quote+comma+quote is safer, or just split by comma
+            parts = last_line.split(',')
+            if len(parts) >= 2:
+                value_str = parts[1].replace('"', '').strip()
+                return int(float(value_str))
+        return -1
+    except:
+        return -1
+
+def get_cpu_usage_windows() -> int:
+    """Intenta obtener el uso de CPU usando PowerShell (Alternativa)."""
+    try:
+        cmd = [
+            "powershell", 
+            "-NoProfile", 
+            "-Command", 
+            "Get-WmiObject Win32_Processor | Measure-Object -Property LoadPercentage -Average | Select-Object -ExpandProperty Average"
+        ]
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startupinfo.wShowWindow = subprocess.SW_HIDE
+        output = subprocess.check_output(cmd, startupinfo=startupinfo, stderr=subprocess.DEVNULL)
         return int(float(output.decode('utf-8').strip()))
     except:
         return -1
@@ -174,10 +198,14 @@ async def get_system_stats() -> str:
         # System Stats (Async safe)
         loop = asyncio.get_running_loop()
         
-        # Intentar WMIC primero (Windows Native)
-        cpu_usage = await loop.run_in_executor(None, get_cpu_usage_windows)
+        # 1. Intentar Typeperf (Performance Counters - Exacto a Task Manager)
+        cpu_usage = await loop.run_in_executor(None, get_cpu_typeperf)
+
+        # 2. Si falla, intentar PowerShell (WMI)
+        if cpu_usage == -1:
+            cpu_usage = await loop.run_in_executor(None, get_cpu_usage_windows)
         
-        # Si falla WMIC (-1), usar psutil
+        # 3. Si falla todo, usar psutil
         if cpu_usage == -1:
             cpu_usage = await loop.run_in_executor(None, lambda: psutil.cpu_percent(interval=1))
         
@@ -541,9 +569,10 @@ async def network_monitor_loop(app: Application) -> None:
 
 
 # --------------------------- VERSION & UPDATES --------------------------- #
-VERSION = "1.1.6"
+VERSION = "1.1.7"
 
 RELEASE_NOTES = """
+- 📊 Mejora: Lectura CPU con 'typeperf' (Contadores de Rendimiento de Windows).
 - 📊 Mejora: Nueva técnica de lectura de CPU (PowerShell) para máxima precisión.
 - 📊 Mejora: Lectura de CPU nativa de Windows (WMIC) para mayor coincidencia con Task Manager.
 - 🐛 Fix: Lectura correcta de CPU y Ping instantáneo en /status.
