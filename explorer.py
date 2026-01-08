@@ -491,7 +491,9 @@ async def network_monitor_loop(app: Application) -> None:
 
 
 # --------------------------- VERSION & UPDATES --------------------------- #
-VERSION = "1.1.1"
+VERSION = "1.1.2"
+
+
 RELEASE_NOTES = """
 - 🐛 Fix: Corrección de ventana de consola parpadeando al hacer ping.
 - ✅ Agregado monitor de red inteligente (Auto-Learning).
