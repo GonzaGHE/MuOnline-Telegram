@@ -145,4 +145,3 @@ Para eliminarlo de tu sistema sigue estos pasos:
 ¿Tienes preguntas o problemas? Contáctame en Telegram:
 
 [![](https://img.shields.io/badge/Telegram-Contactar-blue?style=for-the-badge&logo=telegram)](https://t.me/gonzahe)
-**@gonzahe**
