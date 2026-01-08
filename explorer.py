@@ -309,10 +309,16 @@ async def check_ping(host: str = "8.8.8.8") -> int:
         # Ejecuta ping de forma asíncrona pero invocando al sistema
         # -n 1: 1 paquete
         # -w 2000: tiempo de espera máximo 2000ms
+        # Prepare startup flags to hide window
+        creation_flags = 0
+        if sys.platform == 'win32':
+            creation_flags = subprocess.CREATE_NO_WINDOW
+
         proc = await asyncio.create_subprocess_exec(
             "ping", "-n", "1", "-w", "2000", host,
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+            stderr=asyncio.subprocess.PIPE,
+            creationflags=creation_flags
         )
         stdout, stderr = await proc.communicate()
         
