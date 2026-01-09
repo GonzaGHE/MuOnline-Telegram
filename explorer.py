@@ -174,8 +174,17 @@ async def reload_targets_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def list_targets_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not is_admin(update.effective_user.id): return
     
+    if not HAS_OPENCV:
+        await update.message.reply_text("❌ <b>Error: Falta OpenCV</b>\nEl monitor visual no funciona porque falta la librería `opencv-python`.", parse_mode=ParseMode.HTML)
+        return
+
     if not WATCHER_TARGETS:
-        await update.message.reply_text("📂 No hay imágenes en la carpeta `targets`.")
+        msg = (
+            f"📂 <b>No se encontraron imágenes</b>\n"
+            f"❌ Carpeta escaneada: `{TARGETS_DIR}`\n"
+            f"💡 Pon tus archivos .png ahí y usa /recargar"
+        )
+        await update.message.reply_text(msg, parse_mode=ParseMode.HTML)
         return
 
     lines = ""
