@@ -754,7 +754,7 @@ async def network_monitor_loop(app: Application) -> None:
 
 # --------------------------- VERSION & UPDATES --------------------------- #
 # --------------------------- VERSION & UPDATES --------------------------- #
-VERSION = "1.2.1"
+VERSION = "1.2.2"
 
 RELEASE_NOTES = """
 - 🐛 **Corrección**: Solucionado error en detección de carpeta `targets` local.
