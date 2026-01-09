@@ -142,6 +142,9 @@ Envía estos comandos a tu bot en Telegram:
 
 ## 📜 Historial de Versiones
 
+### v1.2.2
+*   🛠️ **Debug**: Mejor información en mensajes de error del monitor visual.
+
 ### v1.2.1
 *   🐛 **Corrección**: Solucionado el problema donde `/actualizar` no detectaba imágenes en la carpeta local `targets`.
 *   📂 **Mejora**: Prioridad a la carpeta local para facilitar instalaciones portables.

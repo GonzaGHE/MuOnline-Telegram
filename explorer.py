@@ -757,13 +757,9 @@ async def network_monitor_loop(app: Application) -> None:
 VERSION = "1.2.2"
 
 RELEASE_NOTES = """
-- 🐛 **Corrección**: Solucionado error en detección de carpeta `targets` local.
-- 📂 **Mejora**: Ahora el bot prioriza la carpeta `targets` junto al script antes que AppData.
-- 👁️ **Sistema Visual**: Mejor estabilidad al cargar imágenes locales en modo portable.
-- 📦 **Novedades v1.2.0**:
-    - Monitor Visual (Detección de imágenes).
-    - Comandos /objetivos y /recargar.
-    - Smart Reset y soporte OpenCV.
+- �️ **Diagnóstico Mejorado**: El comando `/objetivos` ahora muestra qué carpeta se está escaneando si no encuentra imágenes.
+- � **Fix**: Mensajes de error más claros cuando falta OpenCV.
+- 📦 **v1.2.1**: Corrección de prioridad de carpetas (Local > AppData).
 """
 REPO_URL = "https://raw.githubusercontent.com/GonzaGHE/MuOnline-Telegram/main/explorer.py"
 
