@@ -65,16 +65,22 @@ import json
 # Define AppData path for config
 APPDATA_DIR = os.path.join(os.getenv('APPDATA'), 'MuGuardian')
 CONFIG_FILE = os.path.join(APPDATA_DIR, 'config.json')
-TARGETS_DIR = os.path.join(APPDATA_DIR, 'targets')
+
+# Portable Mode Priority: Check local targets folder first
+LOCAL_DIR = os.path.dirname(os.path.abspath(__file__))
+TARGETS_DIR = os.path.join(LOCAL_DIR, 'targets')
+
+# If local targets folder doesn't exist, fallback to AppData
+if not os.path.exists(TARGETS_DIR):
+    TARGETS_DIR = os.path.join(APPDATA_DIR, 'targets')
+    # Create if not exists (default to AppData for new installs)
+    if not os.path.exists(TARGETS_DIR):
+        try: os.makedirs(TARGETS_DIR)
+        except: pass
 
 # Portable fallback (check local dir if AppData fails)
 if not os.path.exists(CONFIG_FILE):
-    CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')
-
-# Create targets dir if not exists (for portable mode)
-if not os.path.exists(TARGETS_DIR):
-    try: os.makedirs(TARGETS_DIR)
-    except: pass
+    CONFIG_FILE = os.path.join(LOCAL_DIR, 'config.json')
 
 
 TELEGRAM_TOKEN = ""
@@ -739,14 +745,16 @@ async def network_monitor_loop(app: Application) -> None:
 
 # --------------------------- VERSION & UPDATES --------------------------- #
 # --------------------------- VERSION & UPDATES --------------------------- #
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 
 RELEASE_NOTES = """
-- �️ **Nuevo: Monitor Visual** (Detección de imágenes en pantalla).
-- � Comandos: `/objetivos` y `/recargar` para gestionar vigilancia.
-- 🧠 **Smart Reset**: Avisa al instante cuando aparece una alerta visual, sin spam.
-- � Dependencias: Agregado soporte para OpenCV (Visión Artificial).
-- 🛡️ Mejora: Detección inteligente de archivos en carpeta `targets`.
+- 🐛 **Corrección**: Solucionado error en detección de carpeta `targets` local.
+- 📂 **Mejora**: Ahora el bot prioriza la carpeta `targets` junto al script antes que AppData.
+- 👁️ **Sistema Visual**: Mejor estabilidad al cargar imágenes locales en modo portable.
+- 📦 **Novedades v1.2.0**:
+    - Monitor Visual (Detección de imágenes).
+    - Comandos /objetivos y /recargar.
+    - Smart Reset y soporte OpenCV.
 """
 REPO_URL = "https://raw.githubusercontent.com/GonzaGHE/MuOnline-Telegram/main/explorer.py"
 

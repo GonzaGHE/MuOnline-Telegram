@@ -140,6 +140,18 @@ Envía estos comandos a tu bot en Telegram:
 
 ---
 
+## 📜 Historial de Versiones
+
+### v1.2.1
+*   🐛 **Corrección**: Solucionado el problema donde `/actualizar` no detectaba imágenes en la carpeta local `targets`.
+*   📂 **Mejora**: Prioridad a la carpeta local para facilitar instalaciones portables.
+
+### v1.2.0
+*   👁️ **Nuevo**: Monitor Visual con OpenCV.
+*   🧠 **Smart Reset**: Lógica anti-spam para alertas visuales.
+
+---
+
 ## ❓ Preguntas Frecuentes
 
 **¿Es detectable por Anti-Cheats?**
